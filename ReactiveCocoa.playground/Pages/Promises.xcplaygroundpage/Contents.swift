@@ -1,7 +1,7 @@
 //: [Previous](@previous)
 
 /*:
- # Using ReactiveCocoa 4 for PromiseKit style "then" chaining
+ # Using ReactiveCocoa 4 for PromiseKit style "then" chaining (WIP)
  
  PromiseKit gives you a very easy interface for using promises. Essentially, promises are a way of saying "something could happen, and when it does this object will give a value. In the meantime, this object will represent the possibility of that value, so you can for example use it to construct an easy to follow description of events and how they're handled."
  
@@ -56,7 +56,7 @@ func getSentence(forString string: String) -> SignalProducer<String, NoError> {
         }
     }
 }
-/*
+/*:
  ## Chained SignalProducers
  
  ```SignalProducer```s chained with ```flatMap``` like this execute sequentially, taking the value from the last.
@@ -68,16 +68,15 @@ func getSentence(fromInt int: Int) -> SignalProducer<String, NoError> {
         }
         .flatMap(.Latest) { string in
             getSentence(forString: string)
-    }
+        }
 }
+/*:
+```flatMap``` used this way gives you values from the previous ```SignalProducer``` in, and expects a new ```SignalProducer``` in return. This way, we can take a value from the previous producer and use it in a new one to perform a new async function. [2]
 
-//  .flatMap used this way gives you values from the previous SignalProducer in, and expects a new SignalProducer in return. This way, we can take a value from the previous producer and use it in a new one to perform a new async function. [2]
+So this ```getSentence``` reads like this: get an int, then take that int and get the string for it, then take that string and get the sentence for it. Written in normal swift with closure function params, this would be nested 3 levels deep. In Reactive Cocoa, no matter how many operations there are in the chain, this can never nest into a pyramid of doom.
 
-//  So this getSentence reads like this: get an int, then take that int and get the string for it, then take that string and get the sentence for it. Written in normal swift with closure function params, this would be nested 3 levels deep. In Reactive Cocoa, no matter how many operations there are in the chain, this can never nest into a pyramid of doom.
-
-//  [2] There is actually a whole lot more going on here, but since we're only sending 1 value and we have a simple serial chain like this one, we don't have to worry about it. And I still don't completely understand it 😄
-
-
+[2] There is actually a whole lot more going on here, but since we're only sending 1 value and we have a simple serial chain like this one, we don't have to worry about it. And I still don't completely understand it 😄
+*/
 //-------------------------------------------------------------------------------//
 // Using getSentence
 //-------------------------------------------------------------------------------//

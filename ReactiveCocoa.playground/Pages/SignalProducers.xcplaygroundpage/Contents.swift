@@ -4,7 +4,7 @@ import ReactiveCocoa
 import UIKit
 import XCPlayground
 /*:
- ## SignalProducers
+ ## SignalProducers (WIP)
  
  So we have ```Signal```s, which are streams that ```Event```s flow down. Something we haven't talked about yet is how a ```Signal``` is "always on". You never start it: it's already flowing when you ```init``` it (you just haven't sent any ```Event```s yet). So what about circumstances where you have a ```Signal``` with a definite start? Welcome to ```SignalProducer```s [3]
  

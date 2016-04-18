@@ -66,10 +66,47 @@ do {
  Pretty simple - it turns out ```map``` works the same way. So, our ```map``` creates a new ```Signal``` using the string containing "cat" as an input and fires a *Next* ```Event``` with a new string where "cat" is replaced by 😺. Or in other words: "it receives the string containing the word 'cat' from the previous ```Signal``` in, and sends the replaced string out"
  
  There's also something else going on here. Since ```map``` and ```filter``` take a ```Signal``` and return a ```Signal```, they can be connected to each other like pipes. Streams of events flow through these pipes, being transformed or filtered to be sent any which way in exactly the format we want to anything that wants to observe them. What we're seeing here is function composition.
- 
- Something not demonstrated here is the way *Failed* ```Event```s work in these chains. It's very simple though - since *Failed* will stop the ```Signal```, no more *Next* ```Event```s will flow to the next ```Signal``` and the chain stops. But not before propogating the *Failed* ```Event``` through the whole chain first. Nice.
- 
- The beauty of all this is that all our flow logic is mapped out in one place, in a compact concise way. We don't need to define other functions or objects to capture or beautify this logic.
+
+ What happens if a ```Signal``` in the chain fails? Let's see.
+ */
+do {
+    enum DogError: ErrorType {
+        case StringHasADog
+    }
+    
+    let catString = "cat"
+    
+    let (stringSignal, stringObserver) = Signal<String, NoError>.pipe()
+    let catEmojiSignal = stringSignal
+        .promoteErrors(DogError)
+        .attempt { string -> Result<(), (DogError)> in
+            string.containsString("dog") ? .Failure(.StringHasADog) : .Success()
+        }
+        .filter { string in
+            string.containsString(catString)
+        }
+        .map { stringContainingCat in
+            (stringContainingCat as NSString).stringByReplacingOccurrencesOfString("cat", withString: "😺")
+        }
+    
+    stringSignal.observeNext { string in
+        let x = string
+    }
+    
+    catEmojiSignal.observeFailed { error in
+        let x = error
+    }
+    
+    catEmojiSignal.observeNext { catEmojiString in
+        let x = catEmojiString
+    }
+    
+    stringObserver.sendNext("I have a dog")
+    stringObserver.sendNext("Jim has a cat")
+    stringObserver.sendNext("Steve has 2 computers")
+}
+/*:
+ So first we have to ```promote``` our ```Signal``` so it can throw the error we want. Then, we can use the ```attempt``` function to check for the error case and throw if it's met. Even though ```Success``` doesn't pass any value, it indicates that all is well and ```Event```s can continue down the chain. Then it's just business as usual. You can see that the dog ruined all the fun 😾. *Failed* ```Event```s cause ```Signal```s to stop, so once the ```attempt``` fails it's game over.
  */
 
 //: [Next](@next)

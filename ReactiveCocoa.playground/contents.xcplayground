@@ -4,7 +4,6 @@
         <page name='Intro'/>
         <page name='MultiSignalStructures'/>
         <page name='SignalProducers'/>
-        <page name='RealWorld'/>
         <page name='Promises'/>
     </pages>
 </playground>

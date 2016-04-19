@@ -107,6 +107,61 @@ do {
 }
 /*:
  So first we have to ```promote``` our ```Signal``` so it can throw the error we want. Then, we can use the ```attempt``` function to check for the error case and throw if it's met. Even though ```Success``` doesn't pass any value, it indicates that all is well and ```Event```s can continue down the chain. Then it's just business as usual. You can see that the dog ruined all the fun 😾. *Failed* ```Event```s cause ```Signal```s to stop, so once the ```attempt``` fails it's game over.
+ 
+ Another function Reactive Cocoa excells at is waiting for a bunch of things to happen and then continuing. Imagine this UX: User is at a login page. They enter their username and password then tap login. The login network request kicks off and a fancy animation happens to show that they're being logged in. Simple right? But, the designer says they want the animation to finish at least once before the user enters the app, and we can only enter the app at the end of an animation cycle (and of course the user can't enter the app until the back end has confirmed the login).
+ 
+ I can see this in vanilla Swift/UIKit now: a bunch of bools to say what has completed, a bool to say "waiting for animation to finish", everytime something happens (network request completed, animation finishes) all these bools are checked again. Ugly. And then what happens if later we also want to prefetch some images if the login happens really quickly, with a timeout since it's a non-essential step? (remember to still maintain the end of animation cycle timing. Oh and error handling). I'm cringing already...
  */
+do {
+    let loginTime: NSTimeInterval = 0.2
+    let animateCycleTime: NSTimeInterval = 1
+    let prefetchTime: NSTimeInterval = 1.5
+    let prefetchTimeout: NSTimeInterval = 3
+    
+    enum LoginError: ErrorType {
+        case LoginFailed
+    }
+    
+    enum PrefetchError: ErrorType {
+        case PrefetchFailed
+        case PrefetchTimedOut
+    }
+    
+    func login(username: String) -> SignalProducer<Bool, LoginError> {
+        return SignalProducer<Bool, LoginError> { observer, disposable in
+            executeAfter(seconds: 0.2) {
+                if username == "" {
+                    observer.sendFailed(.LoginFailed)
+                } else {
+                    observer.sendNext(true)
+                }
+            }
+        }
+    }
+    
+    func startAnimation() -> SignalProducer<Bool, NoError> {
+        return SignalProducer<Bool, NoError> { observer, disposable in
+            func animate() {
+                executeAfter(seconds: 1) {
+                    observer.sendNext(true)
+                    observer.sendNext(false)
+                    animate()
+                }
+            }
+            animate()
+        }
+    }
+    
+    func prefetch() -> SignalProducer<Bool, PrefetchError> {
+        return SignalProducer<Bool, PrefetchError> { observer, disposable in
+            executeAfter(seconds: 1.2) {
+                observer.sendNext(true)
+            }
+        }
+    }
+    
+    
+}
+
 
 //: [Next](@next)

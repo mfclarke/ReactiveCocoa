@@ -179,7 +179,7 @@ do {
                 if error == .PrefetchTimedOut {
                     return SignalProducer<Bool, ProcessError>(value: true)
                 } else {
-                    return SignalProducer<Bool, ProcessError>(error: ProcessError.PrefetchErrorHappened(type: error))
+                    return SignalProducer<Bool, ProcessError>(error: .PrefetchErrorHappened(type: error))
                 }
             }
         ])
@@ -191,17 +191,12 @@ do {
             return completed
         }
         .on(
-            started: {
-                print("Login starting")
-            },
-            next: { begin in
-                isAnimating = false
-            },
-            failed: { error in
-                isAnimating = false
-        })
+            started: { print("Login starting") },
+            next: { _ in isAnimating = false },
+            failed: { _ in isAnimating = false }
+        )
         .startWithSignal { signal, disposable in
-            signal.observeNext { finished in
+            signal.observeNext { _ in
                 print("Login Process Complete!" + (prefetchTimedOut ? "... with prefetch timeout" : ""))
             }
             signal.observeFailed { error in
@@ -211,9 +206,11 @@ do {
 }
 
 /*:
- About 100 lines, including the SignalProducer definitions (which to be fair would normally reside in their own single responsibility classes/structs). We use our ```combineLatest``` operator to wait until all ```Signal```s have fired, and then forward all the latest events on every time one fires again. Then make sure we only fire if all three values are true. It's beautiful: all the logic to determine what happens when is all in one place, including error handling!
+ About 100 lines, including the SignalProducer definitions (which to be fair would normally reside in their own single responsibility classes/structs) and demonstration logging. 
  
- Some notes: Errors have to be promoted or mapped to one unified type. I opted for a nested enum for this. I also opted to treat the prefetch timeout as a non-fatal error by ```flatMapError```ing it and setting a ```Bool```. You may want to handle this differently (for example, fire an ```Event``` to a different ```Signal```)
+ We use our ```combineLatest``` operator to wait until all ```Signal```s have fired, and then forward all the latest events  every time one fires again. Then make sure we only fire if all three values are true. It's beautiful: all the logic to determine what happens when is all in one place, including error handling!
+ 
+ Some notes: Errors have to be promoted or mapped to one unified type. I opted for a nested enum for this. I also opted to treat the prefetch timeout as a non-fatal error by ```flatMapError```ing it and setting a ```Bool``` for demonstration purposes. You would want to handle this differently (for example, fire an ```Event``` to a different ```Signal```)
  
  Try adding a login timeout failure. I think you'll find it almost too easy... 😃 Then think about how you'd have to do that in vanilla Swift without breaking anything... 🙃
  */

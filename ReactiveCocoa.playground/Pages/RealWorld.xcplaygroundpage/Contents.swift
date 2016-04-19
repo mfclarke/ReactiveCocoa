@@ -79,6 +79,141 @@ XCPlaygroundPage.currentPage.liveView = view
  Funnily enough, for these kinds of things, we could use the ReactiveCocoa ```then``` operator, which waits until the *Completed* ```Event``` has been sent from the previous ```SignalProducer```s ```Signal```. Unfortunately, ```then``` doesn't pass any ```Value```s in, but for stuff like this that doesn't matter. And of course, it's just a simple convenience extension away from having this semantic, if you so choose.
  
  This kind of stuff is a bit like promises, which are discussed in detail on the [Next Page](@next).
+ */
+
+/*:
+ ### A More Detailed Scenario
+ Imagine this UX: User is at a login page. They enter their username and password then tap login. The login network request kicks off and a fancy animation happens to show that they're being logged in. Simple right? But, the designer says they want the animation to finish at least once before the user enters the app, and we can only enter the app at the end of an animation cycle (and of course the user can't enter the app until the back end has confirmed the login).
  
- For other Signal manipulations, including aggregation, merging, zipping and combining, see the ReactiveCocoa documentation on [Basic Operators](https://github.com/ReactiveCocoa/ReactiveCocoa/blob/master/Documentation/BasicOperators.md).
+ I can see this in vanilla Swift/UIKit now: a bunch of bools to say what has completed, a bool to say "waiting for animation to finish", everytime something happens (network request completed, animation finishes) all these bools are checked again. Ugly. And then what happens if later we also want to prefetch some images if the login happens really quickly, with a timeout since it's a non-essential step? (remember to still maintain the end of animation cycle timing. Oh and error handling). I'm cringing already...
+ 
+ Let's try it in Reactive Cocoa:
+ */
+XCPlaygroundPage.currentPage.needsIndefiniteExecution = true
+
+do {
+    enum LoginError: ErrorType {
+        case BadUsername
+    }
+    
+    enum PrefetchError: ErrorType {
+        case PrefetchFailed
+        case PrefetchTimedOut
+    }
+    
+    enum ProcessError: ErrorType {
+        case LoginErrorHappened(type: LoginError)
+        case PrefetchErrorHappened(type: PrefetchError)
+    }
+    
+    var username = "max"
+    var loginTime: NSTimeInterval = 0.2
+    var animateCycleTime: NSTimeInterval = 1
+    var prefetchTime: NSTimeInterval = 4.5
+    var prefetchTimeout: NSTimeInterval = 2
+    
+    var prefetchTimedOut = false
+    var isAnimating = false
+    
+    func login(username: String) -> SignalProducer<Bool, LoginError> {
+        return SignalProducer<Bool, LoginError> { observer, disposable in
+            executeAfter(seconds: loginTime) {
+                if username == "" {
+                    observer.sendFailed(.BadUsername)
+                } else {
+                    observer.sendNext(true)
+                    observer.sendCompleted()
+                }
+            }
+        }
+    }
+    
+    func startAnimation() -> SignalProducer<Bool, NoError> {
+        return SignalProducer<Bool, NoError> { observer, disposable in
+            func animate() {
+                observer.sendNext(false)
+                executeAfter(seconds: animateCycleTime) {
+                    observer.sendNext(true)
+                    if isAnimating {
+                        animate()
+                    } else {
+                        observer.sendCompleted()
+                    }
+                }
+            }
+            isAnimating = true
+            animate()
+        }
+    }
+    
+    func prefetch() -> SignalProducer<Bool, PrefetchError> {
+        return SignalProducer<Bool, PrefetchError> { observer, disposable in
+            executeAfter(seconds: prefetchTime) {
+                observer.sendNext(true)
+                observer.sendCompleted()
+            }
+        }
+    }
+    
+    //: Play with these values to try out different scenarios
+    username = "max"
+    loginTime = 0.2
+    animateCycleTime = 2
+    prefetchTime = 0.5
+    prefetchTimeout = 3
+    
+    combineLatest([
+        login(username)
+            .on(next: { _ in print("Login successful") })
+            .mapError(ProcessError.LoginErrorHappened),
+        startAnimation()
+            .on(next: { finished in if finished { print("Animation finished") } })
+            .promoteErrors(ProcessError),
+        prefetch()
+            .on(next: { _ in print("Prefetch finished") })
+            .timeoutWithError(.PrefetchTimedOut, afterInterval: prefetchTimeout, onScheduler: QueueScheduler.mainQueueScheduler)
+            .on(failed: { error in
+                prefetchTimedOut = true
+            })
+            .flatMapError { error in
+                if error == .PrefetchTimedOut {
+                    return SignalProducer<Bool, ProcessError>(value: true)
+                } else {
+                    return SignalProducer<Bool, ProcessError>(error: ProcessError.PrefetchErrorHappened(type: error))
+                }
+            }
+        ])
+        .map { values in
+            let x = values
+            return values.reduce(true) { $0 && $1 }
+        }
+        .filter { completed in
+            return completed
+        }
+        .on(
+            started: {
+                print("Login starting")
+            },
+            next: { begin in
+                isAnimating = false
+            },
+            failed: { error in
+                isAnimating = false
+        })
+        .startWithSignal { signal, disposable in
+            signal.observeNext { finished in
+                print("Login Process Complete!" + (prefetchTimedOut ? "... with prefetch timeout" : ""))
+            }
+            signal.observeFailed { error in
+                print("Login failed: \(error)")
+            }
+        }
+}
+
+/*:
+ About 100 lines, including the SignalProducer definitions (which to be fair would normally reside in their own single responsibility classes/structs). We use our ```combineLatest``` operator to wait until all ```Signal```s have fired, and then forward all the latest events on every time one fires again. Then make sure we only fire if all three values are true. It's beautiful: all the logic to determine what happens when is all in one place, including error handling!
+ 
+ Some notes: Errors have to be promoted or mapped to one unified type. I opted for a nested enum for this. I also opted to treat the prefetch timeout as a non-fatal error by ```flatMapError```ing it and setting a ```Bool```. You may want to handle this differently (for example, fire an ```Event``` to a different ```Signal```)
+ 
+ Try adding a login timeout failure. I think you'll find it almost too easy... 😃 Then think about how you'd have to do that in vanilla Swift without breaking anything... 🙃
  */

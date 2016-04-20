@@ -162,25 +162,26 @@ do {
     prefetchTime = 0.5
     prefetchTimeout = 3
     
-    combineLatest([
-        login(username)
-            .on(next: { _ in print("Login successful") })
-            .mapError(ProcessError.LoginErrorHappened),
-        startAnimation()
-            .on(next: { finished in if finished { print("Animation finished") } })
-            .promoteErrors(ProcessError),
-        prefetch()
-            .on(next: { _ in print("Prefetch finished") })
-            .timeoutWithError(.PrefetchTimedOut, afterInterval: prefetchTimeout, onScheduler: QueueScheduler.mainQueueScheduler)
-            .on(failed: { error in
-                prefetchTimedOut = true
-            })
-            .flatMapError { error in
-                if error == .PrefetchTimedOut {
-                    return SignalProducer<Bool, ProcessError>(value: true)
-                } else {
-                    return SignalProducer<Bool, ProcessError>(error: .PrefetchErrorHappened(type: error))
-                }
+    let disposable =
+        combineLatest([
+            login(username)
+                .on(next: { _ in print("Login successful") })
+                .mapError(ProcessError.LoginErrorHappened),
+            startAnimation()
+                .on(next: { finished in if finished { print("Animation finished") } })
+                .promoteErrors(ProcessError),
+            prefetch()
+                .on(next: { _ in print("Prefetch finished") })
+                .timeoutWithError(.PrefetchTimedOut, afterInterval: prefetchTimeout, onScheduler: QueueScheduler.mainQueueScheduler)
+                .on(failed: { error in
+                    prefetchTimedOut = true
+                })
+                .flatMapError { error in
+                    if error == .PrefetchTimedOut {
+                        return SignalProducer<Bool, ProcessError>(value: true)
+                    } else {
+                        return SignalProducer<Bool, ProcessError>(error: .PrefetchErrorHappened(type: error))
+                    }
             }
         ])
         .map { values in

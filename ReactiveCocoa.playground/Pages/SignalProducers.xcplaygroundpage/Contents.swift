@@ -12,74 +12,52 @@ import XCPlayground
  
  It's important to understand that each time you ```start``` a ```SignalProducer```, you get an entirely new ```Signal```. So in this way, two ```Signal```s from the same ```SignalProducer``` will have totally different ```Event``` streams.
  
- Here's how our contrived ```Signal``` example from the Intro page looks:
+ A ```SignalProducer``` by itself isn't very useful. Most of the time you will be creating them via a function, or as part of a chain.
  */
 do {
-    let producer = SignalProducer<Int, NoError> { observer, disposable in
-        observer.sendNext(10)
-        observer.sendNext(5)
-        observer.sendNext(12)
-        observer.sendCompleted()
+    enum TrueIfDogError: ErrorType {
+        case NoText
     }
     
-    producer.startWithSignal { signal, disposable in
-        signal.observeNext { number in
-            let x = number
+    func trueIfDog(text: String) -> SignalProducer<Bool, TrueIfDogError> {
+        return SignalProducer { observer, disposable in
+            if text == "" {
+                observer.sendFailed(.NoText)
+            } else {
+                observer.sendNext(text.lowercaseString == "dog")
+            }
+        }
+    }
+
+    let disposable1 = trueIfDog("cat").startWithNext {
+        let x = $0
+    }
+    
+    let disposable2 = trueIfDog("dog").startWithNext {
+        let x = $0
+    }
+    
+    trueIfDog("").startWithSignal { signal, disposable in
+        signal.observeNext {
+            let x = $0
+        }
+        signal.observeFailed {
+            let x = $0
         }
     }
 }
 /*:
- As you can see, the logic for when different events get sent is contained inside the ```SignalProducer```s ```init``` closure. This forces you to create your producer in a logical order: ```SignalProducer```, ```Signal``` firing logic, ```Event``` observation. 
+ As you can see, the logic for when different events get sent is contained inside the ```SignalProducer```s ```init``` closure. This forces you to create your producer in a logical order: ```SignalProducer```, ```Event``` firing logic, ```Signal``` observation.
  
  What's also cool about this is you can define a ```SignalProducer``` that will fire off different ```Event```s for different circumstances, and then use this producer over and over to create new ```Signal```s for different contexts.
+ 
+ ```SignalProducer```s also make wrapping async code very easy.
  */
-do {
-    enum DogError: ErrorType {
-        case StringContainedADog
-    }
-    
-    let producer = SignalProducer<String, DogError> { observer, disposable in
-        // Code goes here
-    }
-}
+
+// Async example goes here
+
 /*:
- For convenience, you can ```start``` a ```SignalProducer``` in a few different ways:
- */
-do {
-    let producer = SignalProducer<Int, NoError> { observer, disposable in
-        observer.sendNext(10)
-        observer.sendNext(5)
-        observer.sendNext(12)
-        observer.sendCompleted()
-    }
-    /*: All in the ```start``` closure */
-    producer.startWithSignal { signal, disposable in
-        signal.observeNext { number in
-            let x = number
-        }
-    }
-    /*: ```Disposable``` as a return value, ```Event```s passed in whole */
-    let disposable = producer.start { event in
-        switch event {
-        case let .Next(number):
-            let x = number
-        case .Completed:
-            let x = "Completed"
-        default:
-            break
-        }
-    }
-    /*: ```Disposable``` as a return value, with only one ```Event``` type used */
-    let disposable2 = producer.startWithNext { number in
-        let x = number
-    }
-}
-/*:
- So why would you use them? Well, they're useful for one off things like network requests or computations, where you don't need the ```Signal``` running indefinitely, but just for that one ```Event```. They're also useful when you don't know when the ```Signal``` will start, but you have everything in place to construct the flow between a bunch of objects that will in the future use it. Even UI ```rac_``` ```RACSignal```s need to be converted to ```SignalProducer```s to be used, only after ```start```ing them.
- */
-// Code goes here
-/*:
-## Understanding flatMap
+## SignalProducer chaining, or how I learned to stop worrying and love ```flatMap(.Latest)```
 ```flatMap``` is one of the more powerful functions of Reactive Cocoa. It enables things like promises, which let you chain all sorts of async code into a synchronous looking structure all in 1 place (and no pyramids of doom).
 */
 // Code and more explaination goes here

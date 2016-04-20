@@ -8,7 +8,7 @@ import XCPlayground
  
  So we have ```Signal```s, which are streams that ```Event```s flow down. Something we haven't talked about yet is how a ```Signal``` is "always on". You never start it: it's already flowing when you ```init``` it (you just haven't sent any ```Event```s yet). So what about circumstances where you have a ```Signal``` with a definite start? Welcome to ```SignalProducer```s [3]
  
- ```SignalProducer```s do exactly what their name says: they produce ```Signal```s. When you create one, you implement the ```send``` behaviour in a block that gives an ```Observer``` and a ```Disposable``` in. Once created, you use one of the ```start``` methods, which literally create a new ```Signal``` for you to observe. In this way, they're kind of like a factory of ```Signal```s with a specific behavour.
+ ```SignalProducer```s do exactly what their name says: they produce ```Signal```s. When you create one, you implement the ```send``` behaviour in a block that gives an ```Observer``` and a ```Disposable``` in. Once created, you use one of the ```start``` methods, which literally creates a new ```Signal``` for you to observe. In this way, they're kind of like a factory of ```Signal```s with a specific behavour.
  
  It's important to understand that each time you ```start``` a ```SignalProducer```, you get an entirely new ```Signal```. So in this way, two ```Signal```s from the same ```SignalProducer``` will have totally different ```Event``` streams.
  

@@ -3,8 +3,8 @@
     <pages>
         <page name='Intro'/>
         <page name='MultiSignalStructures'/>
-        <page name='Promises'/>
         <page name='SignalProducers'/>
+        <page name='Promises'/>
         <page name='RealWorld'/>
     </pages>
 </playground>

@@ -1,1 +1,1 @@
-github "ReactiveCocoa/ReactiveSwift" ~> 3.1
+github "mfclarke/ReactiveSwift" "disable_coverage_for_static_frameworks"
